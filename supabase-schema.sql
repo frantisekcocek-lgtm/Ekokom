@@ -1,51 +1,91 @@
--- ================================================
--- EKO-KOM Evidence - Supabase schema
--- Spustte tento SQL v Supabase SQL Editor
--- (Dashboard > SQL Editor > New query)
--- ================================================
+# EKO-KOM Evidence - Nasazeni na Vercel
 
--- Dodavatele
-create table if not exists suppliers (
-  id uuid default gen_random_uuid() primary key,
-  name text not null,
-  country text default '',
-  note text default '',
-  created_at timestamptz default now()
-);
+## Co potrebujete
 
--- Sablony obalu (kompozitni - items je JSON pole)
-create table if not exists templates (
-  id uuid default gen_random_uuid() primary key,
-  name text not null,
-  supplier_id text default '__global__',
-  items jsonb not null default '[]',
-  created_at timestamptz default now()
-);
+- GitHub ucet (zdarma) - github.com
+- Supabase ucet (zdarma) - supabase.com
+- Vercel ucet (zdarma) - vercel.com
 
--- Prijmy zasilek
-create table if not exists receipts (
-  id uuid default gen_random_uuid() primary key,
-  receipt_date date not null default current_date,
-  supplier_id text,
-  supplier_name text default '',
-  note text default '',
-  items jsonb not null default '[]',
-  created_at timestamptz default now()
-);
+---
 
--- Indexy pro rychle dotazy
-create index if not exists idx_receipts_date on receipts (receipt_date);
-create index if not exists idx_receipts_supplier on receipts (supplier_id);
-create index if not exists idx_templates_supplier on templates (supplier_id);
+## Krok 1: Supabase (databaze)
 
--- Row Level Security - povolit vsem pristup (pro interni firemni pouziti)
--- Pokud chcete omezit pristup, upravte policies
-alter table suppliers enable row level security;
-alter table templates enable row level security;
-alter table receipts enable row level security;
+1. Jdete na **supabase.com** a vytvorte ucet
+2. Kliknete **New Project**, zadejte nazev (napr. `ekokom`) a heslo k DB
+3. Pockejte az se projekt vytvori (~1 min)
+4. V menu vlevo kliknete **SQL Editor**
+5. Kliknete **New query** a vlozite obsah souboru `supabase-schema.sql`
+6. Kliknete **Run** - vytvori se 3 tabulky (suppliers, templates, receipts)
+7. V menu vlevo kliknete **Settings** > **API**
+8. Zkopirujte si dve hodnoty:
+   - **Project URL** (napr. `https://xxxxx.supabase.co`)
+   - **anon / public key** (dlouhy retezec zacinajici `eyJ...`)
 
--- Policies - povolit anonymni pristup (pro jednoduchost)
--- Pro produkci doporucujeme pridat autentifikaci
-create policy "Allow all on suppliers" on suppliers for all using (true) with check (true);
-create policy "Allow all on templates" on templates for all using (true) with check (true);
-create policy "Allow all on receipts" on receipts for all using (true) with check (true);
+## Krok 2: GitHub (kod)
+
+1. Jdete na **github.com** a vytvorte novy repository (napr. `ekokom-evidence`)
+2. Nahrajte do nej vsechny soubory z tohoto projektu
+   - Muzete pres web: **Add file** > **Upload files**
+   - Nebo pres git:
+     ```
+     git init
+     git add .
+     git commit -m "initial"
+     git remote add origin https://github.com/VASE-JMENO/ekokom-evidence.git
+     git push -u origin main
+     ```
+
+## Krok 3: Vercel (hosting)
+
+1. Jdete na **vercel.com** a prihlaste se pres GitHub
+2. Kliknete **Add New** > **Project**
+3. Vyberte vas repository `ekokom-evidence`
+4. V sekci **Environment Variables** pridejte:
+   - `VITE_SUPABASE_URL` = vase Project URL ze Supabase
+   - `VITE_SUPABASE_ANON_KEY` = vas anon key ze Supabase
+5. Kliknete **Deploy**
+6. Za ~1 minutu mate aplikaci na adrese `ekokom-evidence.vercel.app`
+
+## Krok 4: Vlastni domena (volitelne)
+
+V Vercel dashboardu > Settings > Domains pridejte svou domenu.
+
+---
+
+## Sdileni s kolegy
+
+Polete kolegum odkaz na vasi Vercel URL. Vsichni pracuji nad stejnou Supabase databazi.
+Zadna registrace ani prihlaseni neni potreba (pro interni firemni pouziti).
+
+Pokud chcete omezit pristup, doporucuji pridat Supabase Auth:
+- supabase.com/docs/guides/auth
+
+---
+
+## Lokalni vyvoj
+
+```bash
+npm install
+cp .env.example .env
+# Vyplnte VITE_SUPABASE_URL a VITE_SUPABASE_ANON_KEY v .env
+npm run dev
+```
+
+Aplikace pobezi na http://localhost:5173
+
+---
+
+## Struktura projektu
+
+```
+ekokom-app/
+  index.html          - HTML vstupni bod
+  package.json        - zavislosti (React, Supabase, Vite)
+  vite.config.js      - Vite konfigurace
+  supabase-schema.sql - SQL pro vytvoreni tabulek
+  .env.example        - sablona promennych prostredi
+  src/
+    main.jsx          - React entry point
+    App.jsx           - hlavni aplikace (UI + logika)
+    supabase.js       - Supabase klient + DB operace
+```
