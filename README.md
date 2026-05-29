@@ -1,91 +1,125 @@
-# EKO-KOM Evidence - Nasazeni na Vercel
+import { createClient } from '@supabase/supabase-js'
 
-## Co potrebujete
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-- GitHub ucet (zdarma) - github.com
-- Supabase ucet (zdarma) - supabase.com
-- Vercel ucet (zdarma) - vercel.com
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('Supabase not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env')
+}
 
----
+export const supabase = (supabaseUrl && supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey)
+  : null
 
-## Krok 1: Supabase (databaze)
+// ─── Database operations ───
 
-1. Jdete na **supabase.com** a vytvorte ucet
-2. Kliknete **New Project**, zadejte nazev (napr. `ekokom`) a heslo k DB
-3. Pockejte az se projekt vytvori (~1 min)
-4. V menu vlevo kliknete **SQL Editor**
-5. Kliknete **New query** a vlozite obsah souboru `supabase-schema.sql`
-6. Kliknete **Run** - vytvori se 3 tabulky (suppliers, templates, receipts)
-7. V menu vlevo kliknete **Settings** > **API**
-8. Zkopirujte si dve hodnoty:
-   - **Project URL** (napr. `https://xxxxx.supabase.co`)
-   - **anon / public key** (dlouhy retezec zacinajici `eyJ...`)
+export async function loadSuppliers() {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('*')
+    .order('created_at', { ascending: true })
+  if (error) { console.error('Load suppliers:', error); return [] }
+  return data || []
+}
 
-## Krok 2: GitHub (kod)
+export async function saveSupplier(supplier) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('suppliers')
+    .insert(supplier)
+    .select()
+    .single()
+  if (error) { console.error('Save supplier:', error); return null }
+  return data
+}
 
-1. Jdete na **github.com** a vytvorte novy repository (napr. `ekokom-evidence`)
-2. Nahrajte do nej vsechny soubory z tohoto projektu
-   - Muzete pres web: **Add file** > **Upload files**
-   - Nebo pres git:
-     ```
-     git init
-     git add .
-     git commit -m "initial"
-     git remote add origin https://github.com/VASE-JMENO/ekokom-evidence.git
-     git push -u origin main
-     ```
+export async function deleteSupplier(id) {
+  if (!supabase) return false
+  const { error } = await supabase.from('suppliers').delete().eq('id', id)
+  if (error) { console.error('Delete supplier:', error); return false }
+  return true
+}
 
-## Krok 3: Vercel (hosting)
+export async function loadTemplates() {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('templates')
+    .select('*')
+    .order('created_at', { ascending: true })
+  if (error) { console.error('Load templates:', error); return [] }
+  return data || []
+}
 
-1. Jdete na **vercel.com** a prihlaste se pres GitHub
-2. Kliknete **Add New** > **Project**
-3. Vyberte vas repository `ekokom-evidence`
-4. V sekci **Environment Variables** pridejte:
-   - `VITE_SUPABASE_URL` = vase Project URL ze Supabase
-   - `VITE_SUPABASE_ANON_KEY` = vas anon key ze Supabase
-5. Kliknete **Deploy**
-6. Za ~1 minutu mate aplikaci na adrese `ekokom-evidence.vercel.app`
+export async function saveTemplate(template) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('templates')
+    .insert(template)
+    .select()
+    .single()
+  if (error) { console.error('Save template:', error); return null }
+  return data
+}
 
-## Krok 4: Vlastni domena (volitelne)
+export async function deleteTemplate(id) {
+  if (!supabase) return false
+  const { error } = await supabase.from('templates').delete().eq('id', id)
+  if (error) { console.error('Delete template:', error); return false }
+  return true
+}
 
-V Vercel dashboardu > Settings > Domains pridejte svou domenu.
+export async function loadReceipts() {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('receipts')
+    .select('*')
+    .order('receipt_date', { ascending: false })
+  if (error) { console.error('Load receipts:', error); return [] }
+  return (data || []).map(r => ({
+    id: r.id,
+    date: r.receipt_date,
+    supplierId: r.supplier_id,
+    supplierName: r.supplier_name,
+    note: r.note,
+    items: r.items || [],
+  }))
+}
 
----
+export async function saveReceipt(receipt) {
+  if (!supabase) return null
+  const row = {
+    receipt_date: receipt.date,
+    supplier_id: receipt.supplierId || null,
+    supplier_name: receipt.supplierName,
+    note: receipt.note,
+    items: receipt.items,
+  }
+  const { data, error } = await supabase
+    .from('receipts')
+    .insert(row)
+    .select()
+    .single()
+  if (error) { console.error('Save receipt:', error); return null }
+  return { ...receipt, id: data.id }
+}
 
-## Sdileni s kolegy
+export async function updateReceipt(receipt) {
+  if (!supabase) return false
+  const { error } = await supabase
+    .from('receipts')
+    .update({
+      items: receipt.items,
+      note: receipt.note,
+    })
+    .eq('id', receipt.id)
+  if (error) { console.error('Update receipt:', error); return false }
+  return true
+}
 
-Polete kolegum odkaz na vasi Vercel URL. Vsichni pracuji nad stejnou Supabase databazi.
-Zadna registrace ani prihlaseni neni potreba (pro interni firemni pouziti).
-
-Pokud chcete omezit pristup, doporucuji pridat Supabase Auth:
-- supabase.com/docs/guides/auth
-
----
-
-## Lokalni vyvoj
-
-```bash
-npm install
-cp .env.example .env
-# Vyplnte VITE_SUPABASE_URL a VITE_SUPABASE_ANON_KEY v .env
-npm run dev
-```
-
-Aplikace pobezi na http://localhost:5173
-
----
-
-## Struktura projektu
-
-```
-ekokom-app/
-  index.html          - HTML vstupni bod
-  package.json        - zavislosti (React, Supabase, Vite)
-  vite.config.js      - Vite konfigurace
-  supabase-schema.sql - SQL pro vytvoreni tabulek
-  .env.example        - sablona promennych prostredi
-  src/
-    main.jsx          - React entry point
-    App.jsx           - hlavni aplikace (UI + logika)
-    supabase.js       - Supabase klient + DB operace
-```
+export async function deleteReceipt(id) {
+  if (!supabase) return false
+  const { error } = await supabase.from('receipts').delete().eq('id', id)
+  if (error) { console.error('Delete receipt:', error); return false }
+  return true
+}
